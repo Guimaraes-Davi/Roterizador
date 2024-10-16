@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rota com Múltiplas Paradas no Google Maps</title>
+    <style>
+        html, body { 
+            height: 100%; 
+            margin: 0; 
+            padding: 0; 
+            font-family: Arial, sans-serif; 
+            background-color: #f4f4f4; 
+        }
+        #map { 
+            height: 70%; 
+            width: 100%; 
+        }
+        .form-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px;
+        }
+        .form-container input {
+            margin: 10px 0;
+            padding: 12px;
+            width: 300px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .form-container input:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+        .form-container button {
+            padding: 12px 24px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        .form-container button:hover {
+            background-color: #45a049;
+        }
+        #message {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #d9534f;
+        }
+        .json-output {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            margin: 20px;
+            overflow: auto;
+        }
+        pre {
+            margin: 0;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2>Planejador de Rotas</h2>
+        <input id="origin" type="text" placeholder="Cidade de Origem">
+        <input id="stops" type="text" placeholder="Cidades de Parada (separadas por vírgula)">
+        <input id="destination" type="text" placeholder="Cidade de Destino">
+        <button id="submit">Traçar Rota</button>
+        <button id="checkWaypoints">Verificar Waypoints</button>
+        <div id="message"></div>
+    </div>
+    <div id="map"></div>
+
+    <div class="json-output">
+        <h3>Dados JSON</h3>
+        <h4>Entrada:</h4>
+        <pre id="inputJson"></pre>
+        <h4>Saída:</h4>
+        <pre id="outputJson"></pre>
+    </div>
+
+    <script>
+        var map;
+        var directionsService;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 7,
+                center: {lat: -23.55052, lng: -46.633308} // Coordenadas para São Paulo
+            });
+
+            directionsService = new google.maps.DirectionsService();
+        }
+
+        document.getElementById("submit").addEventListener("click", () => {
+            const origin = document.getElementById("origin").value;
+            const stopsInput = document.getElementById("stops").value;
+            const destination = document.getElementById("destination").value;
+            const stops = stopsInput.split(',').map(stop => stop.trim()).filter(stop => stop);
+
+            if (origin === "" || destination === "" || stops.length === 0) {
+                window.alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            // Exibir JSON de entrada
+            const inputJson = {
+                origin: origin,
+                stops: stops,
+                destination: destination
+            };
+            document.getElementById("inputJson").textContent = JSON.stringify(inputJson, null, 2);
+
+            processRoutes(origin, stops, destination);
+        });
+
+        document.getElementById("checkWaypoints").addEventListener("click", () => {
+            const stopsInput = document.getElementById("stops").value;
+            const stops = stopsInput.split(',').map(stop => stop.trim()).filter(stop => stop);
+            const maxWaypoints = 23;
+
+            if (stops.length > maxWaypoints) {
+                document.getElementById("message").textContent = `O número de paradas (${stops.length}) excede o máximo permitido (${maxWaypoints}).`;
+            } else {
+                document.getElementById("message").textContent = `O número de paradas está dentro do limite.`;
+            }
+        });
+
+        function processRoutes(origin, stops, destination) {
+            const request = {
+                origin: origin,
+                destination: destination,
+                waypoints: stops.map(stop => ({ location: stop, stopover: true })),
+                travelMode: google.maps.TravelMode.DRIVING,
+                optimizeWaypoints: true // Habilita a otimização das paradas
+            };
+
+            // Limpa rotas anteriores
+            clearRoutes();
+
+            // Enviar requisição para o DirectionsService
+            directionsService.route(request, (response, status) => {
+                if (status === 'OK') {
+                    const renderer = new google.maps.DirectionsRenderer({ map: map, preserveViewport: true });
+                    renderer.setDirections(response);
+
+                    // Obter a ordem otimizada das paradas
+                    const orderedStops = response.routes[0].waypoint_order.map(index => stops[index]);
+                    
+                    // Exibir JSON de saída
+                    const outputJson = {
+                        origin: origin,
+                        waypoints: stops,
+                        destination: destination,
+                        orderedStops: orderedStops // A ordem otimizada das cidades
+                    };
+                    document.getElementById("outputJson").textContent = JSON.stringify(outputJson, null, 2);
+                } else {
+                    console.error('Directions request failed due to ' + status);
+                }
+            });
+        }
+
+        function clearRoutes() {
+            // Função para limpar rotas anteriores
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 7,
+                center: {lat: -23.55052, lng: -46.633308} // Recentrar o mapa
+            });
+        }
+    </script>
+
+    <!-- Substitua 'YOUR_API_KEY' pela sua chave de API do Google Maps -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfjQr27MAoCiAxW1WV_MZNps5tcG_aI1Q&callback=initMap"></script>
+</body>
+</html>

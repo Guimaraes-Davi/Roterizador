@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rota com Múltiplas Paradas no Google Maps</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            margin-top: 20px;
+            color: #333;
+        }
+
+        #map {
+            height: 500px;  /* Altura do mapa */
+            width: 80%;     /* Largura do mapa */
+            margin: 20px 0;
+            border: 1px solid #ccc;  /* Borda simples ao redor do mapa */
+            display: none;  /* Inicialmente escondido */
+        }
+
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .form-container input {
+            margin: 5px;
+            padding: 10px;
+            width: 200px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .form-container button {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .form-container button:hover {
+            background-color: #45a049;
+        }
+
+        #requestOutput, #jsonOutput {
+            display: none;
+            white-space: pre-wrap;
+            padding: 10px;
+            margin: 10px;
+            border-radius: 4px;
+            width: 80%;
+        }
+
+        #requestOutput {
+            background: #e8e8e8;
+        }
+
+        #jsonOutput {
+            background: #eee;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rota com Múltiplas Paradas</h1>
+    <button id="showMap">Mostrar Mapa</button>
+    <div class="form-container">
+        <input id="origin" type="text" placeholder="Cidade de Origem">
+        <input id="stops" type="text" placeholder="Cidades de Parada (separadas por vírgula)">
+        <input id="destination" type="text" placeholder="Cidade de Destino">
+        <button id="submit">Traçar Rota</button>
+    </div>
+    <div id="map"></div>
+    <pre id="requestOutput"></pre>
+    <pre id="jsonOutput"></pre>
+
+    <script>
+        let map;
+        let directionsService;
+        let directionsRenderer;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 7,
+                center: { lat: -23.55052, lng: -46.633308 }, // Coordenadas para São Paulo
+            });
+
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+        }
+
+        document.getElementById("showMap").addEventListener("click", () => {
+            const mapElement = document.getElementById("map");
+            if (!map) {
+                // Inicializa o mapa se ainda não foi inicializado
+                initMap();
+            }
+            mapElement.style.display = mapElement.style.display === "none" ? "block" : "none";
+        });
+
+        document.getElementById("submit").addEventListener("click", () => {
+            const origin = document.getElementById("origin").value;
+            const stopsInput = document.getElementById("stops").value;
+            const destination = document.getElementById("destination").value;
+            const stops = stopsInput.split(',').map(stop => stop.trim()).filter(stop => stop);
+
+            if (origin === "" || destination === "" || stops.length === 0) {
+                window.alert("Por favor, preencha todos os campos.");
+                return;
+            }
+
+            // Monta o JSON de solicitação (request)
+            const requestJson = {
+                origin: origin,
+                destination: destination,
+                waypoints: stops.map(stop => ({ location: stop, stopover: true })),
+                optimizeWaypoints: true,
+                travelMode: google.maps.TravelMode.DRIVING
+            };
+
+            // Exibir JSON de solicitação
+            const requestOutput = document.getElementById("requestOutput");
+            requestOutput.textContent = JSON.stringify(requestJson, null, 2);
+            requestOutput.style.display = "block";
+
+            directionsService.route(
+                requestJson,
+                (response, status) => {
+                    if (status === "OK") {
+                        directionsRenderer.setDirections(response);
+                        
+                        // Exibir JSON de resposta (response)
+                        const jsonOutput = document.getElementById("jsonOutput");
+                        jsonOutput.textContent = JSON.stringify(response, null, 2);
+                        jsonOutput.style.display = "block";
+                    } else {
+                        window.alert("Erro ao traçar a rota: " + status);
+                    }
+                }
+            );
+        });
+    </script>
+
+    <!-- Substitua 'YOUR_API_KEY' pela sua chave de API do Google Maps -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBfjQr27MAoCiAxW1WV_MZNps5tcG_aI1Q&callback=initMap"></script>
+</body>
+</html>
