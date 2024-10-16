@@ -23,21 +23,21 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
-            align-items: center;
-            margin: 20px;
+            align-items: center; /* Centraliza os elementos */
+            margin: 20px; /* Espaço em torno do contêiner */
         }
         .form-container input {
             margin: 10px 0;
             padding: 12px;
-            width: 300px;
+            width: 300px; /* Aumenta a largura dos inputs */
             border: 1px solid #ccc;
             border-radius: 4px;
             font-size: 16px;
             transition: border-color 0.3s;
         }
         .form-container input:focus {
-            border-color: #4CAF50;
-            outline: none;
+            border-color: #4CAF50; /* Muda a cor da borda ao focar */
+            outline: none; /* Remove o contorno padrão */
         }
         .form-container button {
             padding: 12px 24px;
@@ -56,27 +56,27 @@
         #message {
             margin-top: 10px;
             font-size: 14px;
-            color: #d9534f;
+            color: #d9534f; /* Cor de aviso */
         }
         .json-output {
-            background-color: #fff;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            margin: 20px;
-            overflow: auto;
+            background-color: #fff; /* Fundo branco */
+            border-radius: 8px; /* Bordas arredondadas */
+            padding: 15px; /* Espaçamento interno */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); /* Sombra suave */
+            margin: 20px; /* Espaçamento em torno da saída JSON */
+            overflow: auto; /* Adiciona rolagem se necessário */
         }
         pre {
-            margin: 0;
-            font-size: 14px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+            margin: 0; /* Remove a margem padrão */
+            font-size: 14px; /* Tamanho de fonte menor */
+            white-space: pre-wrap; /* Quebra de linha automática */
+            word-wrap: break-word; /* Quebra de palavra */
         }
     </style>
 </head>
 <body>
     <div class="form-container">
-        <h2>Planejador de Rotas</h2>
+        <h2>Planejador de Rotas</h2> <!-- Título do formulário -->
         <input id="origin" type="text" placeholder="Cidade de Origem">
         <input id="stops" type="text" placeholder="Cidades de Parada (separadas por vírgula)">
         <input id="destination" type="text" placeholder="Cidade de Destino">
@@ -142,37 +142,46 @@
         });
 
         function processRoutes(origin, stops, destination) {
-            const request = {
-                origin: origin,
-                destination: destination,
-                waypoints: stops.map(stop => ({ location: stop, stopover: true })),
-                travelMode: google.maps.TravelMode.DRIVING,
-                optimizeWaypoints: true // Habilita a otimização das paradas
-            };
+            const maxWaypoints = 23; // Limite da Google Maps API
+            let parts = [];
+
+            // Divide as paradas em partes que respeitam o limite de 23 waypoints
+            for (let i = 0; i < stops.length; i += maxWaypoints) {
+                parts.push(stops.slice(i, i + maxWaypoints));
+            }
 
             // Limpa rotas anteriores
             clearRoutes();
 
-            // Enviar requisição para o DirectionsService
-            directionsService.route(request, (response, status) => {
-                if (status === 'OK') {
-                    const renderer = new google.maps.DirectionsRenderer({ map: map, preserveViewport: true });
-                    renderer.setDirections(response);
+            // Enviar requisições para o DirectionsService
+            const outputOrder = [origin, ...stops]; // Mantém a ordem de entrada
+            parts.forEach((waypointGroup, index) => {
+                const waypoints = waypointGroup.map(stop => ({ location: stop, stopover: true }));
+                const request = {
+                    origin: (index === 0) ? origin : parts[index - 1][parts[index - 1].length - 1],
+                    destination: (index === parts.length - 1) ? destination : parts[index][parts[index].length - 1],
+                    waypoints: waypoints,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                    optimizeWaypoints: true
+                };
 
-                    // Obter a ordem otimizada das paradas
-                    const orderedStops = response.routes[0].waypoint_order.map(index => stops[index]);
-                    
-                    // Exibir JSON de saída
-                    const outputJson = {
-                        origin: origin,
-                        waypoints: stops,
-                        destination: destination,
-                        orderedStops: orderedStops // A ordem otimizada das cidades
-                    };
-                    document.getElementById("outputJson").textContent = JSON.stringify(outputJson, null, 2);
-                } else {
-                    console.error('Directions request failed due to ' + status);
-                }
+                directionsService.route(request, (response, status) => {
+                    if (status === 'OK') {
+                        const renderer = new google.maps.DirectionsRenderer({ map: map, preserveViewport: true });
+                        renderer.setDirections(response);
+
+                        // Exibir JSON de saída
+                        const outputJson = {
+                            origin: origin,
+                            waypoints: waypointGroup,
+                            destination: destination,
+                            orderedStops: outputOrder // A ordem das cidades
+                        };
+                        document.getElementById("outputJson").textContent = JSON.stringify(outputJson, null, 2);
+                    } else {
+                        console.error('Directions request failed due to ' + status);
+                    }
+                });
             });
         }
 
